@@ -2,7 +2,7 @@ import { createWorkersAI } from "workers-ai-provider";
 import { routeAgentRequest, callable, type Schedule } from "agents";
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
 import { streamText, convertToModelMessages, pruneMessages, tool, stepCountIs } from "ai";
-import { json, z } from "zod";
+import { z } from "zod";
 import type { GameState } from "./types/game";
 import initializeGameState from "./actions/InitializeGameState"; // The pipeline we just built!
 import { moveAction } from "./actions/move";
@@ -20,7 +20,7 @@ export class ChatAgent extends AIChatAgent<Env, GameState> {
     numberOfGeneratedStates = 0;
 
     aiProvider = createWorkersAI({ binding: this.env.AI });
-    jsonGeneratorModel = this.aiProvider("@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+    jsonGeneratorModel = this.aiProvider("@cf/meta/llama-3.1-8b-instruct-fast");
     gameModel = this.aiProvider("@cf/openai/gpt-oss-120b");
 
     // 🛑 CRITICAL CHANGE: Make this a getter!
@@ -45,6 +45,7 @@ export class ChatAgent extends AIChatAgent<Env, GameState> {
         console.log("🎮 Generating new procedural dungeon state...");
         initializeGameState(this.setting, this.theme, this.level, this.playerClass, this.jsonGeneratorModel)
             .then((initialState) => {
+                console.log(initialState);
                 Object.assign(this.state, initialState);
                 console.log("✅ Initial game state set on Durable Object startup.");
             })
