@@ -6,27 +6,25 @@ export default async function generateSkills(information: { characterClass: stri
     try {
         const { output } = await generateText({
             model: jsonGeneratorModel,
-            system: "You are a backend procedural generation engine. Generate RPG combat and utility skills strictly matching the requested structure.",
+            system: "You are a backend procedural generation engine. Generate RPG combat and utility skills strictly matching the requested structure. Do not omit any properties. Generate a minimum of 5 skills.",
             prompt: `The player is a Level ${information.level} ${information.characterClass} focusing on a "${information.theme}" theme. Generate a balanced mix of offensive, defensive, and utility skills appropriate for this level and class.`,
             output: Output.object({
                 schema: z.object({
-                    skills: z
-                        .array(
-                            z.object({
-                                id: z.string().describe("A snake_case identifier, e.g., 'shadow_step' or 'cleaving_strike'"),
-                                name: z.string().describe("Name of the skill"),
-                                description: z.string().describe("Flavor text describing the visual and mechanical effect of the skill"),
+                    skills: z.array(
+                        z.object({
+                            id: z.string().describe("A snake_case identifier, e.g., 'shadow_step' or 'cleaving_strike'"),
+                            name: z.string().describe("Name of the skill"),
+                            description: z.string().describe("Flavor text describing the visual and mechanical effect of the skill"),
 
-                                // The mechanical hooks for the engine
-                                dice: z.string().optional().describe("Damage or healing dice, e.g., '2d6', '1d10'. Leave undefined if it's pure utility."),
-                                mod: z.enum(["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]).optional().describe("The primary stat modifier used for this skill"),
+                            // The mechanical hooks for the engine
+                            dice: z.string().describe("Damage or healing dice, e.g., '2d6', '1d10'. Leave empty if it's pure utility."),
+                            mod: z.string().describe("The primary stat modifier: 'strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', or 'charisma'"),
 
-                                // Cooldown mechanics
-                                cooldown: z.number().describe("Number of turns before this skill can be used again. Use 0 for at-will or basic abilities, 2-5 for powerful abilities."),
-                                lastUsedTurn: z.number().describe("Always set this to -1 to indicate the skill has never been used.").default(-1),
-                            }),
-                        )
-                        .min(6),
+                            // Cooldown mechanics
+                            cooldown: z.number().describe("Number of turns before this skill can be used again. Use 0 for at-will or basic abilities, 2-5 for powerful abilities."),
+                            lastUsedTurn: z.number().describe("Always set this to -1 to indicate the skill has never been used."),
+                        }),
+                    ),
                 }),
             }),
         });
@@ -34,6 +32,7 @@ export default async function generateSkills(information: { characterClass: stri
         // Optional but recommended: Guarantee unique IDs just in case the AI hallucinates a duplicate
         const uniqueSkills = output.skills.map((skill) => ({
             ...skill,
+            mod: skill.mod as any,
             id: `${skill.id}_${crypto.randomUUID()}`,
         }));
 

@@ -7,23 +7,21 @@ export default async function generateItems(setting: string, theme: string, json
         const { output } = await generateText({
             model: jsonGeneratorModel,
             system: "You are a backend procedural generation engine. Generate RPG item data strictly matching the requested structure.",
-            prompt: `The player searches an area with this "${theme}" theme. Generate weapons, armor, consumables, and miscellaneous as well as props and potential lootable rewards and items that can be used to populate "${setting}"`,
+            prompt: `The player searches an area with this "${theme}" theme. Generate weapons, armor, consumables, and miscellaneous as well as props and potential lootable rewards and items that can be used to populate "${setting}".`,
             output: Output.object({
                 schema: z.object({
-                    items: z
-                        .array(
-                            z.object({
-                                id: z.string().describe("A snake_case identifier, e.g., 'rusty_iron_key'"),
-                                name: z.string().describe("Name of the item"),
-                                description: z.string().describe("Flavor text describing the item's appearance and vibe"),
-                                value: z.number().describe("Value in credits/gold"),
-                                type: z.enum(["weapon", "armor", "consumable", "misc", "prop"]),
-                                dice: z.string().optional().describe("E.g., '1d8' for weapons, '2d4+2' for healing"),
-                                mod: z.enum(["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]).optional(),
-                                ac: z.number().optional().describe("Base armor class or AC bonus"),
-                            }),
-                        )
-                        .min(10),
+                    items: z.array(
+                        z.object({
+                            id: z.string().describe("A snake_case identifier, e.g., 'rusty_iron_key'"),
+                            name: z.string().describe("Name of the item"),
+                            description: z.string().describe("Flavor text describing the item's appearance and vibe"),
+                            value: z.number().describe("Value in credits/gold"),
+                            type: z.string().describe("'weapon', 'armor', 'consumable', 'misc', or 'prop'"),
+                            dice: z.string().describe("E.g., '1d8' for weapons, '2d4+2' for healing"),
+                            mod: z.string().describe("One of: 'strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'"),
+                            ac: z.number().describe("Base armor class or AC bonus"),
+                        }),
+                    ),
                 }),
             }),
         });
@@ -32,6 +30,8 @@ export default async function generateItems(setting: string, theme: string, json
 
         return output.items.map((item) => ({
             ...item,
+            type: item.type as any,
+            mod: item.mod as any,
             id: `${item.id}_${crypto.randomUUID()}`,
         }));
     } catch (error) {

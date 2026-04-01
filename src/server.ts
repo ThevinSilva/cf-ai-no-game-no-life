@@ -1,36 +1,36 @@
 import { createWorkersAI } from "workers-ai-provider";
 import { routeAgentRequest, callable, type Schedule } from "agents";
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
-import { streamText, convertToModelMessages, pruneMessages, tool, stepCountIs } from "ai";
+import { streamText, convertToModelMessages, pruneMessages, tool } from "ai";
 import { z } from "zod";
-import type { GameState } from "./types/game";
+import type { GameState, Ability } from "./types/game";
 import initializeGameState from "./actions/InitializeGameState"; // The pipeline we just built!
 import { moveAction } from "./actions/move";
 import { interactAction } from "./actions/interact";
 import { consumeAction } from "./actions/consume";
 import { attackAction } from "./actions/attack";
 import { talkAction } from "./actions/talk";
+import { encode } from "@toon-format/toon";
+import timer from "./utils/timer";
 
 export class ChatAgent extends AIChatAgent<Env, GameState> {
-    theme = "dark fantasy";
-    setting = "A cursed underground labyrinth";
-    playerClass = "Rogue"; // Could be passed in via a setup message later!
-    level = 1;
+    theme = "";
+    setting = "";
     waitForMcpConnections = true;
-    numberOfGeneratedStates = 0;
 
     aiProvider = createWorkersAI({ binding: this.env.AI });
+    // jsonGeneratorModel = this.aiProvider("@cf/openai/gpt-oss-120b");
+    // jsonGeneratorModel = this.aiProvider("@cf/mistralai/mistral-small-3.1-24b-instruct");
+    // jsonGeneratorModel = this.aiProvider("@cf/meta/llama-3.3-70b-instruct-fp8-fast");
     jsonGeneratorModel = this.aiProvider("@cf/meta/llama-3.1-8b-instruct-fast");
+    // jsonGeneratorModel = this.aiProvider("@cf/moonshotai/kimi-k2.5");
     gameModel = this.aiProvider("@cf/openai/gpt-oss-120b");
 
-    // 🛑 CRITICAL CHANGE: Make this a getter!
-    // This ensures that every time the LLM is called, it reads the FRESHEST state from disk,
-    // not the state from when the Durable Object first booted up.
     get dynamicSystemPrompt() {
         return `
         You are a DM running a roleplaying game. 
         CURRENT GAME STATE:
-        ${JSON.stringify(this.state, null, 2)}
+        ${encode(this.state)}
 
         YOUR RULES:
         1. Speak entirely in character. Narrate outcomes cinematically.
@@ -42,30 +42,67 @@ export class ChatAgent extends AIChatAgent<Env, GameState> {
     }
 
     async onStart() {
-        console.log("🎮 Generating new procedural dungeon state...");
-        initializeGameState(this.setting, this.theme, this.level, this.playerClass, this.jsonGeneratorModel)
-            .then((initialState) => {
-                console.log(initialState);
-                Object.assign(this.state, initialState);
-                console.log("✅ Initial game state set on Durable Object startup.");
-            })
-            .catch((error) => {
-                console.error("❌ Failed to initialize game state on startup:", error);
-            });
+        // check if we have an existing game state on startup
+        const state = this.state as unknown as GameState;
+
+        console.log(state.player);
+        if (!state.player && this.messages.length === 0) {
+            console.log("📡 Initializing fresh session. Setting status to setup...");
+            this.setState({ status: "setup" } as any);
+        } else if (state.player) {
+            console.log(`📡 Resuming session for ${state.player.name}... (Status: ${state.status})`);
+        }
     }
 
     @callable()
-    async restartGame() {
-        this.numberOfGeneratedStates = 0;
-        // Clear the state by deleting all keys
-        const state = this.state as unknown as Record<string, unknown>;
-        for (const key of Object.keys(state)) {
-            delete state[key];
+    async reset() {
+        // Clear all state keys
+        const stateKeys = Object.keys(this.state);
+        for (const key of stateKeys) {
+            delete (this.state as any)[key];
         }
-        // ensureInitialized will be called by the next chat message
-        await this.onStart();
+        this.setState({ status: "setup" } as any);
+
+        // Clear message history if possible
+        try {
+            // @ts-ignore - sql is available in AIChatAgent but might not be in types
+            if (typeof this.sql === "function") {
+                // @ts-ignore
+                await this.sql`DELETE FROM messages`;
+            }
+        } catch (error) {
+            console.error("Failed to clear messages:", error);
+        }
+
+        console.log("📡 Session reset. Status set to setup.");
+    }
+
+    @callable()
+    @timer
+    async startGame(config: { theme: string; setting: string; name: string; characterClass: string; stats: Record<Ability, number> }) {
+        // Clear all state keys but preserve basic structure if needed
+        const stateKeys = Object.keys(this.state);
+        for (const key of stateKeys) {
+            delete (this.state as any)[key];
+        }
+
+        console.log("🎮 Generating procedural world for:", config);
+        try {
+            const initialState: GameState = await initializeGameState(config.setting, config.theme, 1, config.characterClass, this.jsonGeneratorModel, config.stats);
+
+            initialState.player.name = config.name;
+            initialState.status = "playing";
+
+            this.setState(initialState);
+            console.log("✅ Game state generated successfully.");
+        } catch (error) {
+            console.error("Initialization error:", error);
+            this.setState({ status: "setup" } as any); // Fallback to setup if generation fails
+        }
     }
     async onChatMessage(onFinish: unknown, options?: OnChatMessageOptions) {
+        console.log(this.dynamicSystemPrompt);
+
         const result = streamText({
             model: this.gameModel,
             system: this.dynamicSystemPrompt, // Pulls the newly generated state!
@@ -79,21 +116,14 @@ export class ChatAgent extends AIChatAgent<Env, GameState> {
                     description: "Updates the deterministic game engine for attacks, movement, interacting, consuming, or talking. YOU MUST USE IDs (e.g., 'enemy_goblin_123'), NOT NAMES.",
                     inputSchema: z.object({
                         actionType: z.enum(["attack", "move", "interact", "consume", "talk", "trade"]).describe("The type of mechanical action to perform."),
-
-                        // 🔥 CRITICAL UPDATE: Forcing the ID
                         targetId: z.string().describe("The EXACT string ID of the target from the current state JSON (e.g., 'enemy_goblin_123', 'prop_barrel_456', 'room_corridor_789'). DO NOT use display names."),
-
                         spokenWords: z.string().optional().describe("REQUIRED if actionType is 'talk'. The exact words the player is saying to the NPC."),
-
                         npcMemoryUpdate: z.string().optional().describe("If actionType is 'talk' and the player reveals a major secret, summarize it here to add to the NPC's core memories."),
                     }),
                     execute: async ({ actionType, targetId, spokenWords, npcMemoryUpdate }) => {
                         let systemLog = "";
 
                         try {
-                            // Cloudflare AIChatAgent automatically proxies `this.state`.
-                            // By mutating it directly inside these functions, Cloudflare knows EXACTLY
-                            // which properties changed and saves them to the Durable Object disk automatically!
                             switch (actionType) {
                                 case "move":
                                     systemLog = moveAction(this.state, targetId);
@@ -130,8 +160,8 @@ export class ChatAgent extends AIChatAgent<Env, GameState> {
                     },
                 }),
             },
-            stopWhen: ({ steps }) => steps.length >= 10,
-            toolChoice: "auto",
+            stopWhen: ({ steps }) => steps.length >= 20,
+            toolChoice: "required",
             abortSignal: options?.abortSignal,
         });
 
