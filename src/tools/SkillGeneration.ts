@@ -2,12 +2,12 @@ import { type Skill } from "../types/game";
 import { generateText, Output, type LanguageModel } from "ai";
 import z from "zod";
 
-export default async function generateSkills(information: { characterClass: string; theme: string; level: number }, jsonGeneratorModel: LanguageModel): Promise<Skill[]> {
+export default async function generateSkills(specSheet: string, jsonGeneratorModel: LanguageModel): Promise<Skill[]> {
     try {
         const { output } = await generateText({
             model: jsonGeneratorModel,
             system: "You are a backend procedural generation engine. Generate RPG combat and utility skills strictly matching the requested structure. Do not omit any properties. Generate a minimum of 5 skills.",
-            prompt: `The player is a Level ${information.level} ${information.characterClass} focusing on a "${information.theme}" theme. Generate a balanced mix of offensive, defensive, and utility skills appropriate for this level and class.`,
+            prompt: `Create any skills outlined in ${specSheet}. `,
             output: Output.object({
                 schema: z.object({
                     skills: z.array(
@@ -40,8 +40,7 @@ export default async function generateSkills(information: { characterClass: stri
     } catch (error) {
         console.error("Error generating skills:", {
             error,
-            information,
         });
-        throw new Error(`Failed to generate skills for class ${information.characterClass} (level ${information.level}, theme ${information.theme}): ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Failed to generate skills for: ${error instanceof Error ? error.message : String(error)}`);
     }
 }

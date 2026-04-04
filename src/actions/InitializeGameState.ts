@@ -3,18 +3,18 @@ import generateActors from "../tools/ActorGeneration";
 import generateItems from "../tools/ItemGeneration";
 import generateSkills from "../tools/SkillGeneration";
 import generateRooms from "../tools/RoomGeneration";
+import generateSpecSheet from "../tools/SpecSheetGeneration";
 import type { LanguageModel } from "ai";
 
-export default async function initializeGameState(setting: string, theme: string, level: number, playerClass: string, jsonGeneratorModel: LanguageModel, playerStats?: Record<Ability, number>): Promise<GameState> {
-    console.time("initializeGameState");
+export default async function initializeGameState(setting: string, theme: string, level: number, playerClass: string, playerStats: Record<Ability, number>, gameModel: LanguageModel, jsonGeneratorModel: LanguageModel): Promise<GameState> {
     try {
-        const [items, skills] = await Promise.all([generateItems(setting, theme, jsonGeneratorModel), generateSkills({ characterClass: playerClass, theme, level }, jsonGeneratorModel)]);
+        const specSheet = await generateSpecSheet({ setting, theme, level, playerClass, gameModel, playerStats });
 
-        console.log("Generated items:", items);
-        console.log("Generated skills:", items);
+        console.log(specSheet);
 
-        const actors = await generateActors({ setting, theme, level }, { items, skills }, jsonGeneratorModel);
-        const rooms = await generateRooms({ setting, theme, level }, { actors, items }, jsonGeneratorModel);
+        const [items, skills, actors, rooms] = await Promise.all([generateItems(specSheet, jsonGeneratorModel), generateSkills(specSheet, jsonGeneratorModel), generateActors(specSheet, jsonGeneratorModel), generateRooms(specSheet, jsonGeneratorModel)]);
+
+        console.log(items, skills, actors, rooms);
 
         const itemsRecord = Object.fromEntries(items.map((i) => [i.id, i]));
         const skillsRecord = Object.fromEntries(skills.map((s) => [s.id, s]));

@@ -2,12 +2,12 @@ import { type Item } from "../types/game";
 import { generateText, Output, type LanguageModel } from "ai";
 import z from "zod";
 
-export default async function generateItems(setting: string, theme: string, jsonGeneratorModel: LanguageModel): Promise<Item[]> {
+export default async function generateItems(specSheet: string, jsonGeneratorModel: LanguageModel): Promise<Item[]> {
     try {
         const { output } = await generateText({
             model: jsonGeneratorModel,
-            system: "You are a backend procedural generation engine. Generate RPG item data strictly matching the requested structure.",
-            prompt: `The player searches an area with this "${theme}" theme. Generate weapons, armor, consumables, and miscellaneous as well as props and potential lootable rewards and items that can be used to populate "${setting}".`,
+            system: "You are a backend procedural generation engine that extracts relevant data from the provided specsheet then creates RPG item data strictly matching the requested structure.",
+            prompt: `Create any items outlined in ${specSheet}. Take some creative liberty when certain details aren't specified.`,
             output: Output.object({
                 schema: z.object({
                     items: z.array(
@@ -26,8 +26,6 @@ export default async function generateItems(setting: string, theme: string, json
             }),
         });
 
-        console.log(output);
-
         return output.items.map((item) => ({
             ...item,
             type: item.type as any,
@@ -37,9 +35,7 @@ export default async function generateItems(setting: string, theme: string, json
     } catch (error) {
         console.error("Error generating items:", {
             error,
-            setting,
-            theme,
         });
-        throw new Error(`Failed to generate items for ${setting} (${theme}): ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Failed to generate items for: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
