@@ -6,6 +6,7 @@ export default async function generateItems(specSheet: string, jsonGeneratorMode
     try {
         const { output } = await generateText({
             model: jsonGeneratorModel,
+            temperature: 0,
             system: "You are a backend procedural generation engine that extracts relevant data from the provided specsheet then creates RPG item data strictly matching the requested structure.",
             prompt: `Create any items outlined in ${specSheet}. Take some creative liberty when certain details aren't specified.`,
             output: Output.object({
@@ -30,7 +31,6 @@ export default async function generateItems(specSheet: string, jsonGeneratorMode
             ...item,
             type: item.type as any,
             mod: item.mod as any,
-            id: `${item.id}_${crypto.randomUUID()}`,
         }));
     } catch (error) {
         console.error("Error generating items:", {

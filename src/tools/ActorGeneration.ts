@@ -6,8 +6,8 @@ export default async function generateActors(specSheet: string, jsonGeneratorMod
     try {
         const { output } = await generateText({
             model: jsonGeneratorModel,
-            system: "You are a backend procedural generation engine. Generate RPG actors (NPCs, enemies, traders) strictly matching the requested structure. CRITICAL: Every field in the JSON schema is mandatory. Do not omit any properties.",
-            prompt: `Create any actors outlined in ${specSheet}. Generate 3 to 5 actors (a mix of hostile enemies, neutral traders, or generic NPCs). Equip them with items and skills from the available lists below.`,
+            system: "You are a backend procedural generation engine. Extract RPG actors (NPCs, enemies, traders) strictly matching the requested structure.",
+            prompt: `Create all actors outlined in ${specSheet}. Equip them with items and skills from the available lists below.`,
             output: Output.object({
                 schema: z.object({
                     actors: z.array(
@@ -42,7 +42,6 @@ export default async function generateActors(specSheet: string, jsonGeneratorMod
         return output.actors.map((actor) => ({
             ...actor,
             role: actor.role as any,
-            id: `${actor.id}_${crypto.randomUUID()}`,
             coreMemories: [],
         }));
     } catch (error) {

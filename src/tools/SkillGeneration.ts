@@ -6,7 +6,8 @@ export default async function generateSkills(specSheet: string, jsonGeneratorMod
     try {
         const { output } = await generateText({
             model: jsonGeneratorModel,
-            system: "You are a backend procedural generation engine. Generate RPG combat and utility skills strictly matching the requested structure. Do not omit any properties. Generate a minimum of 5 skills.",
+            temperature: 0,
+            system: "You are a backend procedural generation engine. Extract RPG combat and utility skills strictly matching the requested structure. Do not omit any properties. Generate a minimum of 5 skills.",
             prompt: `Create any skills outlined in ${specSheet}. `,
             output: Output.object({
                 schema: z.object({
@@ -33,7 +34,6 @@ export default async function generateSkills(specSheet: string, jsonGeneratorMod
         const uniqueSkills = output.skills.map((skill) => ({
             ...skill,
             mod: skill.mod as any,
-            id: `${skill.id}_${crypto.randomUUID()}`,
         }));
 
         return uniqueSkills;

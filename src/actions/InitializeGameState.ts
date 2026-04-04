@@ -1,21 +1,14 @@
-import { type GameState, type Player, type Ability } from "../types/game";
+import type { GameState, Player, GenerationConfig } from "../types/game";
 import generateActors from "../tools/ActorGeneration";
 import generateItems from "../tools/ItemGeneration";
 import generateSkills from "../tools/SkillGeneration";
 import generateRooms from "../tools/RoomGeneration";
 import generateSpecSheet from "../tools/SpecSheetGeneration";
-import type { LanguageModel } from "ai";
 
-export default async function initializeGameState(setting: string, theme: string, level: number, playerClass: string, playerStats: Record<Ability, number>, gameModel: LanguageModel, jsonGeneratorModel: LanguageModel): Promise<GameState> {
+export default async function initializeGameState({ setting, theme, level, characterClass, jsonGeneratorModel, stats, name }: GenerationConfig): Promise<GameState> {
     try {
-        const specSheet = await generateSpecSheet({ setting, theme, level, playerClass, gameModel, playerStats });
-
-        console.log(specSheet);
-
+        const specSheet = await generateSpecSheet({ name, setting, theme, level, characterClass, jsonGeneratorModel, stats });
         const [items, skills, actors, rooms] = await Promise.all([generateItems(specSheet, jsonGeneratorModel), generateSkills(specSheet, jsonGeneratorModel), generateActors(specSheet, jsonGeneratorModel), generateRooms(specSheet, jsonGeneratorModel)]);
-
-        console.log(items, skills, actors, rooms);
-
         const itemsRecord = Object.fromEntries(items.map((i) => [i.id, i]));
         const skillsRecord = Object.fromEntries(skills.map((s) => [s.id, s]));
         const actorsRecord = Object.fromEntries(actors.map((a) => [a.id, a]));
@@ -34,15 +27,15 @@ export default async function initializeGameState(setting: string, theme: string
 
         const defaultPlayer: Player = {
             id: "player_1",
-            name: "Thevin",
-            characterClass: playerClass,
-            level: level,
+            name,
+            characterClass,
+            level,
             xp: 0,
-            hp: 20 + (playerStats?.constitution || 0) * 5, // HP scaled by CON
-            maxHp: 20 + (playerStats?.constitution || 0) * 5,
-            ac: 10 + (playerStats?.dexterity || 0), // AC scaled by DEX
+            hp: 20 + (stats?.constitution || 0) * 5,
+            maxHp: 20 + (stats?.constitution || 0) * 5,
+            ac: 10 + (stats?.dexterity || 0),
             credits: 50,
-            mods: playerStats || {
+            mods: stats || {
                 strength: 0,
                 dexterity: 0,
                 constitution: 0,
@@ -50,8 +43,8 @@ export default async function initializeGameState(setting: string, theme: string
                 wisdom: 0,
                 charisma: 0,
             },
-            itemIds: [], // Empty as requested
-            skillIds: [], // Empty as requested
+            itemIds: [],
+            skillIds: [],
             equippedWeaponId: undefined,
             equippedArmorId: undefined,
         };
@@ -71,7 +64,7 @@ export default async function initializeGameState(setting: string, theme: string
             rooms: roomsRecord,
 
             roomNodes: roomNodes,
-            sceneImageBase64: "", // Start with an empty image, the engine can generate it on the fly based on the current room and actors
+            sceneImageBase64: "",
             flags: {
                 isGameOver: false,
             },
@@ -80,7 +73,6 @@ export default async function initializeGameState(setting: string, theme: string
         return initialState;
     } catch (error) {
         console.error("Critical error during game state initialization:", error);
-        // Re-throw the error with a more descriptive message if it's not already one of our custom ones
         if (error instanceof Error && error.message.includes("Failed to generate")) {
             throw error;
         }

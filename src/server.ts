@@ -22,8 +22,8 @@ export class ChatAgent extends AIChatAgent<Env, GameState> {
     // jsonGeneratorModel = this.aiProvider("@cf/openai/gpt-oss-120b");
     // jsonGeneratorModel = this.aiProvider("@cf/mistralai/mistral-small-3.1-24b-instruct");
     // jsonGeneratorModel = this.aiProvider("@cf/meta/llama-3.3-70b-instruct-fp8-fast");
-    jsonGeneratorModel = this.aiProvider("@cf/meta/llama-3.1-8b-instruct-fast");
     // jsonGeneratorModel = this.aiProvider("@cf/moonshotai/kimi-k2.5");
+    jsonGeneratorModel = this.aiProvider("@cf/meta/llama-3.1-8b-instruct-fast");
     gameModel = this.aiProvider("@cf/openai/gpt-oss-120b");
 
     get dynamicSystemPrompt() {
@@ -88,7 +88,7 @@ export class ChatAgent extends AIChatAgent<Env, GameState> {
 
         console.log("🎮 Generating procedural world for:", config);
         try {
-            const initialState: GameState = await initializeGameState(config.setting, config.theme, 1, config.characterClass, this.jsonGeneratorModel, config.stats);
+            const initialState: GameState = await initializeGameState({ ...config, level: 1, jsonGeneratorModel: this.jsonGeneratorModel });
 
             initialState.player.name = config.name;
             initialState.status = "playing";

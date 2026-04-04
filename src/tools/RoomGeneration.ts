@@ -1,4 +1,4 @@
-import { type Room, type Actor, type Item } from "../types/game";
+import { type Room } from "../types/game";
 import { generateText, Output, type LanguageModel } from "ai";
 import z from "zod";
 
@@ -8,7 +8,7 @@ export default async function generateRooms(specSheet: string, jsonGeneratorMode
             model: jsonGeneratorModel,
             temperature: 0,
             system: "You are a backend procedural generation engine. Generate an interconnected set of RPG rooms strictly matching the requested structure. CRITICAL: Every field in the JSON schema is mandatory. Do not omit any properties.",
-            prompt: `Create any skills outlined in ${specSheet}. `,
+            prompt: `Create all skills outlined in ${specSheet}. `,
 
             output: Output.object({
                 schema: z.object({
@@ -29,10 +29,7 @@ export default async function generateRooms(specSheet: string, jsonGeneratorMode
             }),
         });
 
-        return output.rooms.map((room) => ({
-            ...room,
-            id: `${room.id}_${crypto.randomUUID()}`,
-        }));
+        return output.rooms;
     } catch (error) {
         console.error("Error generating rooms:", {
             error,

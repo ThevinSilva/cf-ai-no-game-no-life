@@ -1,3 +1,5 @@
+import { type LanguageModel } from "ai";
+
 // ---------------------------------------------------------
 // CORE TYPES
 // ---------------------------------------------------------
@@ -112,4 +114,14 @@ interface GameState {
     sceneImageBase64: null | string; // For dynamic scene rendering, if you choose to implement it
 }
 
-export type { GameState, Player, Actor, Room, Item, Skill, Ability, Role, ItemType };
+interface GenerationConfig {
+    setting: string;
+    theme: string;
+    level: number;
+    name: string;
+    stats: Record<Ability, number>;
+    characterClass: string;
+    jsonGeneratorModel: LanguageModel;
+}
+
+export type { GameState, Player, Actor, Room, Item, Skill, Ability, Role, ItemType, GenerationConfig };
