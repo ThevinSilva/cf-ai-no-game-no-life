@@ -6,22 +6,25 @@ export default async function generateSpecSheet(config: GenerationConfig): Promi
     const { jsonGeneratorModel, setting, theme, level, stats, characterClass } = config;
 
     const prompt = `
-Setting: ${setting} | Theme: ${theme} | Class: ${characterClass} | Level: ${level} | Stats: ${encode(stats)}
-Generate a compact RPG spec sheet. Be creative — references, humour, and themed names encouraged.
-Generate in order: items first, then skills, then actors and rooms referencing those exact names.
+	Setting: ${setting} | Theme: ${theme} | Class: ${characterClass} | Level: ${level} | Stats: ${encode(stats)}
+	Generate a compact RPG spec sheet. Be creative — references, humour, and themed names encouraged.
+	Generate in order: items first, then skills, then actors and rooms referencing those exact names.
 
-ITEMS (10): id(item_*), name, description, value(gp), dice, modifier, ac(if armour)
-SKILLS (6): id(skill_*), name, description, dice, modifier, cooldown(0=at-will, 2-5=powerful)
-ACTORS (3-5): id(actor_*), name, description, abilityMods, ac, maxHp, characterClass(Scavenger|Merchant|Brute), isHostile, role(trader|generic|enemy|ally), itemIds[], skillIds[]
-ROOMS (5): id(room_*), name, description, isSafe, isBossRoom, order(1-5), itemIds[], hiddenItemIds[], actorIds[] — build a loose narrative arc from room 1 to 5
+	ITEMS (10): id(item_*), name, description, value(gp), dice, modifier, ac(if armour)
+	SKILLS (6): id(skill_*), name, description, dice, modifier, cooldown(0=at-will, 2-5=powerful), lastUsedTurn(by default -1)
+	ACTORS (3-5): id(actor_*), name, description, abilityMods, ac, maxHp, characterClass(Scavenger|Merchant|Brute), isHostile, role(trader|generic|enemy|ally), itemIds[], skillIds[]
+	ROOMS (5): id(room_*), name, description, isSafe, isBossRoom, order(1-5), itemIds[], hiddenItemIds[], actorIds[] — build a loose narrative arc from room 1 to 5
 
-Rules:
-- Room 3 must be safe (isSafe:true, traders/allies only)
-- Room 5 must be boss room (isBossRoom:true, highest-HP hostile)
-- Each actor/item appears in at most one room
-- Only reference ids defined above
-- All ids and names must be unique
-  `.trim();
+	Rules:
+	- Type for item should be one of 'weapon', 'armor', 'consumable', 'misc', or 'prop'.
+	- Room 3 must be safe (isSafe:true, traders/allies only)
+	- Room 5 must be boss room (isBossRoom:true, highest-HP hostile)
+	- Each actor/item appears in at most one room
+	- Only reference ids defined above
+	- All ids and names must be unique
+	- Uses the industry-standard "NdX" notation (e.g., 2d6, 1d20...) THATS IT
+	- Mod is the specific attribute of the character that the item or skill should check (e.g., "Strength")
+	`.trim();
 
     try {
         const { text } = await generateText({

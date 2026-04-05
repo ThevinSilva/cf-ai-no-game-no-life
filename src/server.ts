@@ -89,7 +89,6 @@ export class ChatAgent extends AIChatAgent<Env, GameState> {
         console.log("🎮 Generating procedural world for:", config);
         try {
             const initialState: GameState = await initializeGameState({ ...config, level: 1, jsonGeneratorModel: this.jsonGeneratorModel });
-
             initialState.player.name = config.name;
             initialState.status = "playing";
 

@@ -7,7 +7,10 @@ import generateSpecSheet from "../tools/SpecSheetGeneration";
 
 export default async function initializeGameState({ setting, theme, level, characterClass, jsonGeneratorModel, stats, name }: GenerationConfig): Promise<GameState> {
     try {
+        // generate specsheet
         const specSheet = await generateSpecSheet({ name, setting, theme, level, characterClass, jsonGeneratorModel, stats });
+
+        // extraction methods
         const [items, skills, actors, rooms] = await Promise.all([generateItems(specSheet, jsonGeneratorModel), generateSkills(specSheet, jsonGeneratorModel), generateActors(specSheet, jsonGeneratorModel), generateRooms(specSheet, jsonGeneratorModel)]);
         const itemsRecord = Object.fromEntries(items.map((i) => [i.id, i]));
         const skillsRecord = Object.fromEntries(skills.map((s) => [s.id, s]));
